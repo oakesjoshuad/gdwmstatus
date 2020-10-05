@@ -140,7 +140,7 @@ func Status(sep string) string {
 	tab := "  "
 	status := []string{
 		tab,
-		loadAvg(3, " "),
+		loadAvg(4, " "),
 		wifiStatus(),
 		batteryCapacity(),
 		time.Now().Format(DateFormat),
