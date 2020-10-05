@@ -1,3 +1,1 @@
 # gdwmstatus
-
-testing a change.
