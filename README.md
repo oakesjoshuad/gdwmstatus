@@ -1,3 +1,3 @@
 # gdwmstatus
 
-new commit
+dwm status in go
