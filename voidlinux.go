@@ -8,18 +8,20 @@ import (
 )
 
 const (
-	path_power   = "/sys/class/power_supply"
-	path_network = "/sys/class/net"
-	path_proc    = "/proc"
+	pathPower   = "/sys/class/power_supply"
+	pathNetwork = "/sys/class/net"
+	pathProc    = "/proc"
 
-	ep_battery      = "/BAT0"
-	ep_poweradapter = "/AC"
-	ep_wifi         = "/wlp3s0"
+	epBattery      = "/BAT0"
+	epPoweradapter = "/AC"
+	epWifi         = "/wlp3s0"
+	epLAN          = "/eno1"
 
-	fd_battery_capacity    = path_power + ep_battery + "/capacity"    // 0 - 100 || Full
-	fd_poweradapter_status = path_power + ep_poweradapter + "/online" // 1
-	fd_wifi_status         = path_network + ep_wifi + "/operstate"    // up
-	fd_loadavg             = path_proc + "/loadavg"
+	fdBatteryCapacity    = pathPower + epBattery + "/capacity"    // 0 - 100 || Full
+	fdPoweradapterStatus = pathPower + epPoweradapter + "/online" // 1
+	fdWifiStatus         = pathNetwork + epWifi + "/operstate"    // up
+	fdLANStatus          = pathNetwork + epLAN + "/operstate"     // up
+	fdLoadavg            = pathProc + "/loadavg"
 )
 
 // parseFile reads a file assumed to be one line terminated by a newline character.
@@ -34,7 +36,7 @@ func parseFile(path string) (string, error) {
 
 // powerAdapterStatus returns true if the power adapter is connected, otherwise false or error
 func powerAdapterStatus() bool {
-	if content, err := parseFile(fd_poweradapter_status); err != nil {
+	if content, err := parseFile(fdPoweradapterStatus); err != nil {
 		return false
 	} else {
 		if status, err := strconv.Atoi(content); err != nil {
@@ -54,23 +56,34 @@ func powerAdapterStatus() bool {
 
 // wifiStatus returns true if a connection is detected, otherwise false or error
 func wifiStatus() string {
-	if content, err := parseFile(fd_wifi_status); err != nil {
+	if content, err := parseFile(fdWifiStatus); err != nil {
 		return ""
 	} else {
 		switch content {
 		case "up":
-			return Wifi_On
-		case "down":
-			return Wifi_Off
+			return WifiConnected
 		default:
-			return Wifi_Off
+			return WifiDisconnected
+		}
+	}
+}
+
+func lanStatus() string {
+	if content, err := parseFile(fdLANStatus); err != nil {
+		return ""
+	} else {
+		switch content {
+		case "up":
+			return LANConnected
+		default:
+			return LANDisconnected
 		}
 	}
 }
 
 // batteryCapacity returns the current battery capacity in a range between 0-100, otherwise an error
 func batteryCapacity() string {
-	content, err := parseFile(fd_battery_capacity)
+	content, err := parseFile(fdBatteryCapacity)
 	if err != nil {
 		return ""
 	}
@@ -82,44 +95,44 @@ func batteryCapacity() string {
 	if present {
 		switch {
 		case capacity < 10:
-			return Battery_Alert
+			return BatteryAlert
 		case capacity < 20:
-			return Battery_Charging
+			return BatteryCharging
 		case capacity < 30:
-			return Battery_Charging_20
+			return BatteryCharging20
 		case capacity < 40:
-			return Battery_Charging_30
+			return BatteryCharging30
 		case capacity < 60:
-			return Battery_Charging_40
+			return BatteryCharging40
 		case capacity < 80:
-			return Battery_Charging_60
+			return BatteryCharging60
 		case capacity < 90:
-			return Battery_Charging_80
+			return BatteryCharging80
 		default:
-			return Battery_Charging
+			return BatteryCharging
 		}
 	} else {
 		switch {
 		case capacity < 10:
-			return Battery_Alert
+			return BatteryAlert
 		case capacity < 20:
-			return Battery_10
+			return Battery10
 		case capacity < 30:
-			return Battery_20
+			return Battery20
 		case capacity < 40:
-			return Battery_30
+			return Battery30
 		case capacity < 50:
-			return Battery_40
+			return Battery40
 		case capacity < 60:
-			return Battery_50
+			return Battery50
 		case capacity < 70:
-			return Battery_60
+			return Battery60
 		case capacity < 80:
-			return Battery_70
+			return Battery70
 		case capacity < 90:
-			return Battery_80
+			return Battery80
 		case capacity < 100:
-			return Battery_90
+			return Battery90
 		default:
 			return Battery
 		}
@@ -128,7 +141,7 @@ func batteryCapacity() string {
 
 // loadAvg
 func loadAvg(fields uint, sep string) string {
-	if content, err := parseFile(fd_loadavg); err != nil {
+	if content, err := parseFile(fdLoadavg); err != nil {
 		return ""
 	} else {
 		splits := strings.Split(content, " ")
@@ -138,13 +151,20 @@ func loadAvg(fields uint, sep string) string {
 
 func Status(sep string) string {
 	tab := "  "
-	status := []string{
-		tab,
-		loadAvg(4, " "),
-		wifiStatus(),
-		batteryCapacity(),
-		time.Now().Format(DateFormat),
-		tab,
+	status := []string{tab}
+	if la := loadAvg(4, " "); la != "" {
+		status = append(status, la)
 	}
+	if lan := lanStatus(); lan != "" {
+		status = append(status, lan)
+	}
+	if wifi := wifiStatus(); wifi != "" {
+		status = append(status, wifi)
+	}
+	if pa := powerAdapterStatus(); pa {
+		status = append(status, batteryCapacity())
+	}
+	status = append(status, time.Now().Format(DateFormat))
+	status = append(status, tab)
 	return strings.Join(status, sep)
 }
